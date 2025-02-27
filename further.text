@@ -1,0 +1,142 @@
+<!-- None, this is a Node.js application -->
+
+<!-- Database Setup -->
+<!-- Create a new file called database.js -->
+
+const mongoose = require('mongoose');
+require('dotenv').config();
+
+mongoose.connect(process.env.DATABASE_URL, { useNewUrlParser: true, useUnifiedTopology: true });
+
+const db = mongoose.connection;
+
+db.on('error', console.error.bind(console, 'connection error:'));
+db.once('open', function () {
+    console.log('Connected to MongoDB');
+});
+
+module.exports = db;
+
+<!-- Models -->
+<!-- Create a new file called models/Data.js -->
+
+const mongoose = require('mongoose');
+
+const dataSchema = new mongoose.Schema({
+    name: String,
+    email: String,
+    choice: String,
+    dependentAnswers: Object
+});
+
+module.exports = mongoose.model('Data', dataSchema);
+
+<!-- Server Setup -->
+<!-- Create a new file called app.js -->
+
+const express = require('express');
+const bodyParser = require('body-parser');
+require('dotenv').config();
+const mongoose = require('mongoose');
+const db = require('./database');
+const Data = require('./models/Data');
+
+const app = express();
+
+app.use(bodyParser.json());
+app.use(express.static('public'));
+
+const port = process.env.PORT || 3000;
+
+app.get('/api/data', async (req, res) => {
+    try {
+        const data = await Data.find();
+        res.json(data);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error fetching data' });
+    }
+});
+
+app.post('/api/data', async (req, res) => {
+    try {
+        const { name, email, choice, dependentAnswers } = req.body;
+        const newData = new Data({ name, email, choice, dependentAnswers });
+        await newData.save();
+        res.json(newData);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error creating data' });
+    }
+});
+
+app.put('/api/data/:id', async (req, res) => {
+    try {
+        const id = req.params.id;
+        const updatedData = await Data.findByIdAndUpdate(id, req.body, { new: true });
+        res.json(updatedData);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error updating data' });
+    }
+});
+
+app.delete('/api/data/:id', async (req, res) => {
+    try {
+        const id = req.params.id;
+        await Data.findByIdAndRemove(id);
+        res.json({ message: 'Data deleted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Error deleting data' });
+    }
+});
+
+app.listen(port, () => {
+    console.log(`Server listening on port ${port}`);
+});
+
+<!-- Deployment -->
+<!-- Create a new file called Procfile -->
+
+web: node app.js
+
+<!-- Create a new file called package.json -->
+
+{
+    "name": "data-collection-app",
+    "version": "1.0.0",
+    "description": "A Node.js app for collecting data",
+    "main": "app.js",
+    "scripts": {
+        "start": "node app.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "dependencies": {
+        "body-parser": "^1.19.0",
+        "dotenv": "^10.0.0",
+        "express": "^4.17.1",
+        "mongoose": "^6.0.12"
+    },
+    "engines": {
+        "node": "14.x"
+    }
+}
+
+<!-- Create a new file called .env -->
+
+DATABASE_URL=mongodb://localhost:27017/data-collection-app
+
+<!-- Create a new script in package.json -->
+
+"heroku-postbuild": "npm install && npm run build"
+
+<!-- Deploy to Heroku -->
+<!-- Run the following commands in your terminal -->
+
+git init
+heroku git:remote -a <your-app-name>
+git add .
+git commit -m "Initial commit"
+git push heroku main
+heroku open
